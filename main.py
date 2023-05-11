@@ -8,11 +8,9 @@ import warnings
 
 from fire import Fire
 
-from examples import demo_selenium, demo_challenge, demo_install, demo_classify
 from examples.motion import app, motion
 from examples.settings import config
-
-demo_install.do()
+from examples import demo_challenge
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
@@ -30,11 +28,6 @@ class Scaffold:
         self.run = self.demo
 
     @staticmethod
-    def install(model: typing.Optional[str] = None, upgrade: typing.Optional[bool] = False):
-        """Download Project Dependencies and upgrade all pluggable ONNX model"""
-        demo_install.do(yolo_onnx_prefix=model, upgrade=upgrade)
-
-    @staticmethod
     def test():
         """Test the Challenger drive for fitment"""
         demo_challenge.test()
@@ -50,7 +43,6 @@ class Scaffold:
     @staticmethod
     def demo(
         silence: typing.Optional[bool] = False,
-        model: typing.Optional[str] = None,
         target: typing.Optional[str] = None,
         sitekey: typing.Optional[str] = None,
         screenshot: typing.Optional[bool] = False,
@@ -93,31 +85,10 @@ class Scaffold:
             sample_site,
             lang=Scaffold.CHALLENGE_LANGUAGE,
             silence=silence,
-            onnx_prefix=model,
             screenshot=screenshot,
             repeat=repeat,
             slowdown=slowdown,
         )
-
-    @staticmethod
-    def demo_bytedance():
-        """
-        signup hcaptcha dashboard
-
-        Usage: python main.py demo-bytedance
-        :return:
-        """
-        demo_selenium.bytedance()
-
-    @staticmethod
-    def demo_classify():
-        """
-        BinaryClassification Task
-
-        Usage: python main.py demo-classify
-        :return:
-        """
-        demo_classify.bytedance()
 
 
 if __name__ == "__main__":

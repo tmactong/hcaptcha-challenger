@@ -25,7 +25,6 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.wait import WebDriverWait
 from undetected_chromedriver import Chrome
 
-from ._solutions import resnet, yolo
 from .exceptions import LabelNotFoundException, ChallengePassed, ChallengeLangException
 
 
@@ -188,10 +187,8 @@ class HolyChallenger:
         dir_workspace: typing.Optional[str] = None,
         lang: typing.Optional[str] = "zh",
         dir_model: typing.Optional[str] = None,
-        onnx_prefix: typing.Optional[str] = None,
         screenshot: typing.Optional[bool] = False,
         debug: typing.Optional[bool] = False,
-        path_objects_yaml: typing.Optional[str] = None,
         slowdown: typing.Optional[bool] = True,
     ):
         if not isinstance(lang, str) or not self._label_alias.get(lang):
@@ -202,10 +199,8 @@ class HolyChallenger:
 
         self.action_name = "ArmorCaptcha"
         self.dir_model = dir_model or os.path.join("datas", "models")
-        self.path_objects_yaml = path_objects_yaml or os.path.join("datas", "objects.yaml")
         self.dir_workspace = dir_workspace or os.path.join("datas", "temp_cache", "_challenge")
         self.debug = debug
-        self.onnx_prefix = onnx_prefix
         self.screenshot = screenshot
         self.slowdown = slowdown
 
@@ -226,14 +221,7 @@ class HolyChallenger:
         # 图像标签
         self.label = ""
         self.prompt = ""
-
         self.threat = 0
-
-        # Automatic registration
-        self.pom_handler = resnet.PluggableONNXModels(
-            path_objects_yaml=self.path_objects_yaml, dir_model=self.dir_model, lang=self.lang
-        )
-        self.label_alias.update(self.pom_handler.label_alias)
 
     @property
     def utils(self):
@@ -363,45 +351,6 @@ class HolyChallenger:
             self.label = self.label_cleaning(_label)
             self.log(message="Get label", label=f"「{self.label}」")
 
-    def tactical_retreat(self, ctx) -> typing.Optional[str]:
-        """
-        「blacklist mode」 skip unchoreographed challenges
-        :param ctx:
-        :return: the screenshot storage path
-        """
-        if self.label_alias.get(self.label):
-            return self.CHALLENGE_CONTINUE
-
-        # Save a screenshot of the challenge
-        try:
-            challenge_container = ctx.find_element(By.XPATH, "//body[@class='no-selection']")
-            self.path_screenshot = self.captcha_screenshot(challenge_container)
-        except NoSuchElementException:
-            pass
-        except WebDriverException as err:
-            logger.exception(err)
-        finally:
-            q = quote(self.label, "utf8")
-            logger.warning(
-                f">> ALERT [{self.action_name}] Types of challenges not yet scheduled - "
-                f"label=「{self.label}」 "
-                f"prompt=「{self.prompt}」 "
-                f"screenshot={self.path_screenshot} "
-                f"site_link={ctx.current_url} "
-                f"issues=https://github.com/QIN2DIM/hcaptcha-challenger/issues?q={q}"
-            )
-            return self.CHALLENGE_BACKCALL
-
-    def switch_solution(self):
-        """Optimizing solutions based on different challenge labels"""
-        label_alias = self.label_alias.get(self.label)
-
-        # Load ONNX model - ResNet | YOLO
-        if label_alias not in self.pom_handler.fingers:
-            self.log("lazy-loading", sign="YOLO", match=label_alias)
-            return yolo.YOLO(self.dir_model, self.onnx_prefix)
-        return self.pom_handler.lazy_loading(label_alias)
-
     def mark_samples(self, ctx: Chrome):
         """
         Get the download link and locator of each challenge image
@@ -494,7 +443,7 @@ class HolyChallenger:
         ImageDownloader(docker_).perform()
         self.log(message="Download challenge images", timeit=f"{round(time.time() - start, 2)}s")
 
-    def challenge(self, ctx: Chrome, model):
+    def challenge(self, ctx: Chrome):
         """
         图像分类，元素点击，答案提交
 
@@ -511,6 +460,7 @@ class HolyChallenger:
 
         :return:
         """
+        return
 
         ta = []
         # {{< IMAGE CLASSIFICATION >}}
@@ -605,20 +555,23 @@ class HolyChallenger:
         """处理复选框"""
         for _ in range(8):
             try:
-                # [👻] 进入复选框
-                WebDriverWait(ctx, 2, ignored_exceptions=(ElementNotVisibleException,)).until(
+                # 进入复选框
+                WebDriverWait(ctx, 15, ignored_exceptions=(ElementNotVisibleException,)).until(
                     EC.frame_to_be_available_and_switch_to_it(
                         (By.XPATH, "//iframe[contains(@title,'checkbox')]")
                     )
                 )
-                # [👻] 点击复选框
-                WebDriverWait(ctx, 2).until(EC.element_to_be_clickable((By.ID, "checkbox"))).click()
+                print("frame is available")
+                # 点击复选框
+                WebDriverWait(ctx, 5).until(EC.element_to_be_clickable((By.ID, "checkbox"))).click()
+                print("checkbox is clicked")
+                time.sleep(10)
                 self.log("Handle hCaptcha checkbox")
                 return True
             except (TimeoutException, InvalidArgumentException):
                 pass
             finally:
-                # [👻] 回到主线剧情
+                # 回到主线剧情
                 ctx.switch_to.default_content()
 
     def anti_hcaptcha(self, ctx: Chrome) -> typing.Union[bool, str]:
@@ -671,83 +624,24 @@ class HolyChallenger:
                     ctx.switch_to.default_content()
                     return drop
 
-                # [👻] 拉取挑戰圖片
+                # 拉取挑戰圖片
                 self.download_images()
 
-                # [👻] 滤除无法处理的挑战类别
-                if drop := self.tactical_retreat(ctx) in [self.CHALLENGE_BACKCALL]:
-                    ctx.switch_to.default_content()
-                    return drop
-
-                # [👻] 注册解决方案
-                # 根据挑战类型自动匹配不同的模型
-                solution = self.switch_solution()
-
-                # [👻] 識別|點擊|提交
-                self.challenge(ctx, solution)
+                # 識別|點擊|提交
+                # self.challenge(ctx)
 
                 # [👻] 輪詢控制臺響應
-                result, _ = self.challenge_success(ctx)
-                self.log("Get response", desc=result)
+                # result, _ = self.challenge_success(ctx)
+                # self.log("Get response", desc=result)
 
-                ctx.switch_to.default_content()
-                solution.offload()
-                if result in [self.CHALLENGE_SUCCESS, self.CHALLENGE_CRASH, self.CHALLENGE_RETRY]:
-                    return result
+                # ctx.switch_to.default_content()
+                # if result in [self.CHALLENGE_SUCCESS, self.CHALLENGE_CRASH, self.CHALLENGE_RETRY]:
+                    # return result
 
         except WebDriverException as err:
             logger.exception(err)
             ctx.switch_to.default_content()
             return self.CHALLENGE_CRASH
-
-    def classify(
-        self, prompt: str, images: typing.List[typing.Union[str, bytes]]
-    ) -> typing.Optional[typing.List[bool]]:
-        """TaskType: HcaptchaClassification"""
-        if not prompt or not isinstance(prompt, str) or not images or not isinstance(images, list):
-            logger.error(
-                f">> ALERT [{self.action_name}] Invalid parameters - "
-                f"prompt=「{self.prompt}」 "
-                f"images=「{images}」"
-            )
-            return
-
-        self.lang = "zh" if re.compile("[\u4e00-\u9fa5]+").search(prompt) else "en"
-        self.label_alias = self._label_alias[self.lang]
-        self.label_alias.update(self.pom_handler.get_label_alias(self.lang))
-        self.prompt = prompt
-        _label = self.split_prompt_message(prompt, lang=self.lang)
-        self.label = self.label_cleaning(_label)
-
-        if self.label not in self.label_alias:
-            logger.error(
-                f">> ALERT [{self.action_name}] Types of challenges not yet scheduled - "
-                f"label=「{self.label}」 "
-                f"prompt=「{self.prompt}」"
-            )
-            return
-
-        model = self.switch_solution()
-        response = []
-        for img in images:
-            try:
-                if isinstance(img, str) and os.path.isfile(img):
-                    with open(img, "rb") as file:
-                        response.append(
-                            model.solution(
-                                img_stream=file.read(), label=self.label_alias[self.label]
-                            )
-                        )
-                elif isinstance(img, bytes):
-                    response.append(
-                        model.solution(img_stream=img, label=self.label_alias[self.label])
-                    )
-                else:
-                    response.append(False)
-            except Exception as err:
-                logger.exception(err)
-                response.append(False)
-        return response
 
 
 class ArmorUtils:

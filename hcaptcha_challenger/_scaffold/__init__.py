@@ -182,6 +182,12 @@ def createChromeOptions(
     options = ChromeOptions()
     options.add_argument("--log-level=3")
     options.add_argument("--disable-dev-shm-usage")
+    #options.add_argument("--user-data-dir=/Users/tongxin.tx/hcaptcha/Default")
+    #options.add_argument("--no-sandbox")
+    #options.add_argument("--disable-extensions")
+    #options.add_argument("--disable-setuid-sandbox")
+    #options.add_argument("--headless")
+    #options.add_argument("--disable-gpu")
 
     # - Restrict the language of hCaptcha label
     # - Environment variables are valid only in the current process

@@ -33,6 +33,7 @@ def _motion(sample_site: str, ctx, challenger: solver.HolyChallenger) -> typing.
     # The `sample site` must pop up the `checkbox`, where the flexible wait time defaults to 5s.
     # If the `checkbox` does not load in 5s, your network is in a bad state.
     if challenger.utils.face_the_checkbox(ctx):
+        print('checkbox is showing')
         # Enter iframe-checkbox --> Process hcaptcha checkbox --> Exit iframe-checkbox
         challenger.anti_checkbox(ctx)
         # Enter iframe-content --> process hcaptcha challenge --> exit iframe-content
@@ -45,7 +46,6 @@ def run(
     sample_site: str,
     lang: typing.Optional[str] = "zh",
     silence: typing.Optional[bool] = False,
-    onnx_prefix: typing.Optional[str] = None,
     screenshot: typing.Optional[bool] = False,
     repeat: typing.Optional[int] = 10,
     slowdown: typing.Optional[bool] = True,
@@ -57,8 +57,7 @@ def run(
         screenshot=screenshot,
         debug=True,
         lang=lang,
-        onnx_prefix=onnx_prefix or "yolov6n",
-        slowdown=slowdown,
+        slowdown=slowdown
     )
     ctx = solver.get_challenge_ctx(silence=silence, lang=lang)
     for i in range(repeat):
